@@ -6,7 +6,7 @@
 /*   By: ssar <ssar@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/04/24 18:01:22 by ssar              #+#    #+#             */
-/*   Updated: 2024/05/16 16:35:40 by ssar             ###   ########.fr       */
+/*   Updated: 2025/02/25 12:42:50 by ssar             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -57,7 +57,7 @@ void	*run_malloc(size_t size)
 void	*malloc(size_t size)
 {
 	void	*ptr;
-
+	
 	pthread_mutex_lock(&g_mutex_malloc);
 	ptr = run_malloc(size);
 	pthread_mutex_unlock(&g_mutex_malloc);
