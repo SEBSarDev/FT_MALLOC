@@ -1,0 +1,117 @@
+Quand on fait un malloc, il y a 3 possibilités:
+
+- soit un block a été libéré précedement, il est assez grand pour le nouveaux malloc,
+dans ce cas on le divise à la bonne taille, on crée un block pour le malloc, et un
+block vide plus petit à a suite.
+il faut noter : 
+    - que le nouveau block est plein
+    - la nouvelle taille du block plein
+    - que le block adjacent (si il existe) est vide
+    - la nouvelle taille du bloc vide adjacent
+    - ajouter un au nombre de bloc utilisé dans la heap
+- soit il n'y a pas de block vide, mais la taille de la heap qui reste est suffisant
+on crée donc un nouveau bloc à la fin.
+il faut noter:
+    - le nouveau bloc est plein
+    - la taille du block plein
+    - la nouvelle taille de la heap qui est libre à la fin
+    - la nouvelle taille de la heap qui est déjà utilisée (taille du bloc, plus taille des données)
+    - ajouter un au nombre de bloc utilisé dans la heap
+- soit y a plus de place dans aucune heap, et dans ce cas on en crée une nouvelle.
+
+/*
+on utilise mmap pour avoir la zone qu'elle soit petite, moyenne ou grande.
+Quand on a une nouvelle zone on l'ajoute a la liste de la heap,
+en lui donnant pour depart l'adresse renvoyer par mmap + la taille de la structure heap ?
+ensuite pour retourner ladresse, si c'est un large on retourne directement le mmap crée?
+si cest tiny ou small, il faut diviser de la taille souhaiter. Pour determiner lequel choisir,
+c'est une taille fixe a ne pas depasser (il faut au moins 100 allocations
+pour chaque zone en fonction de combien on a demandé à mmap, une petite division suffira)
+ensuite on crée un block avec toutes les infos nécessaire:
+adresse de départ et taille. et on renvoit l'addresse 
+*/
+
+quand on fait un free
+Il faut d abord retrouver le block qui correspond dans la bonne heap.
+Quand on a trouvé ce block, il y a plusieurs solutions :
+- le block est au milieu ou au debut de la heap, avec aucun block vide adjacents, on change
+    - memset les data
+    - statut du block a is_free = 1
+    - décremente nombre de block utilisé dans la heap
+- le block est au milieu ou au debut de la heap, et un ou deux des blocks qui lui sont adjacents sont vide, on les merge. On change
+    - memset les data
+    - change statut is_free a 1
+    - decremente block_used de la heap
+    - on merge dabord le block et le suivant
+        - block->data_size += block->next->total_size
+        - block->total_size = sizeof(t_block) + block->data_size
+        - block->next = block->next->next
+        - si block->next, block->next->prev = block sinon first_block = NULL
+    - merge le block précédent avec ce bloc
+        - meme choses
+- le bloc est le dernier block de la heap
+    - memset data
+    - decremente block_used de la heap
+    - block-is_free = 1
+    - heap->free_size += block->total_size
+    - heap->used_size -= block->total_size
+    - si block->prev, block->prev->next = NULL
+Pas oublier, vérifie que la heap contient encore au moins 1 block utilisé, sinon rend à la mémoire
+    - on oublie pas de changer heap->next et heap->prev
+
+                        next               prev
+heap                      |-----------------|
+    block_used  block_used  block_to_free  block_used
+->  block_used  block_used  block_used  block_to_free   -> passe is_free a 1, libere data
+                                    |--- next passe à NULL
+/* 
+il faut trouver le ptr dans la heap
+ensuite libéré le block.
+merge les block si plusieurs à la suite sont libres
+si tout les block de la heap sont libre, on libère la heap
+si pas de ptr on retourne sans rien faire.
+*/
+
+Pour le realloc,
+- soit la nouvelle taille est plus petite que l'ancienne, on reduit donc la taille du bloc,
+et selon le cas,
+    -soit on cree un bloc free qui le suit.
+    -soit on agrandi le bloc free qui le suit
+    -soit on agrandi la taille libre de la heap.
+- soit la nouvelle taille est plus grande et le pointeur qui est envoye est suivit d assez d espace memoire pour agrandir la location,
+dans ce cas on modifie
+    - si le bloc est au entre d autre blocs il etai suivie d un bloc vide : on modifie la taille
+        du bloc actuelle et celui du bloc vide qui le suivait (soit le bloc vide qui le suit disparait
+        soit sa taille, et son début sont modifier)
+    - si le bloc etait a la fin, on modifie la taille du bloc, et les tailles utilisées et libre de la heap
+- soit le pointeur n a pas d espace suffisant qui le suit.
+    - dans ce cas, on fait un nouveau malloc de la taille. On free le ptr, on retourne le nouveau malloc.
+
+
+    /*
+SMALL : 0x7FCA06FDB000
+0x7FCA06FDB050 - 0x7FCA06FDB450 : 1024 octets
+LARGE : 0x7FCA07200000
+0x7FCA07200050 - 0x7FCA07208050 : 32768 octets
+LARGE : 0x7FCA06EDA000
+0x7FCA06EDA050 - 0x7FCA06FDA050 : 1048576 octets
+LARGE : 0x7FCA05ED9000
+0x7FCA05ED9050 - 0x7FCA06ED9050 : 16777216 octets
+LARGE : 0x7FC9FDED8000
+0x7FC9FDED8050 - 0x7FCA05ED8050 : 134217728 octets
+Total : 152077312 octets
+
+
+    YOO
+SMALL : 0x7fb1502a2000
+0x7fb1502a2048 - 0x7fb1502a2480 :  1024 bytes
+LARGE : 0x7fb1504c8000
+0x7fb1504c8048 - 0x7fb1504d0080 :  32768 bytes
+LARGE : 0x7fb1501a1000
+0x7fb1501a1048 - 0x7fb1502a1080 :  1048576 bytes
+LARGE : 0x7fb14f1a0000
+0x7fb14f1a0048 - 0x7fb1501a0080 :  16777216 bytes
+LARGE : 0x7fb14719f000
+0x7fb14719f048 - 0x7fb14f19f080 :  134217728 bytes
+Total :  152207944 bytes
+*/
